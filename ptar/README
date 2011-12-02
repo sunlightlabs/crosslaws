@@ -1,0 +1,3 @@
+This directory contains Python code for parsing the Parallel Table of Authorities and Rules and copying its contents into a graph database.
+
+The PTAR is available at http://www.gpo.gov/help/parallel_table.txt
