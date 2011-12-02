@@ -1,1 +1,7 @@
-crosslaws is a crosswalk service for mapping amongst the Code of Federal Regulations, the US Code, the US Statues at Large, etc.
+crosslaws is a crosswalk service for mapping amongst:
+
+* Proposed and final federal regulations (RIN, Code of Federal Regulations, Federal Register)
+* The US Code
+* The US Statutes at Large
+* Slip law (public and private federal law numbers)
+* Bills in Congress that have been enacted into law
