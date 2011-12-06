@@ -1,7 +1,12 @@
-crosslaws is a crosswalk service for mapping amongst:
+Crosslaws is set of parsing scripts that produce bulk data related to federal laws, statutes, the US Code, the Code of Federal Regulations, and proposed regulations as they go through the rulemaking process.
 
-* Proposed and final federal regulations (RIN, Code of Federal Regulations, Federal Register)
-* The US Code
-* The US Statutes at Large
-* Slip law (public and private federal law numbers)
-* Bills in Congress that have been enacted into law
+
+Actively being worked on and contained in this repo:
+
+* A parser for the Parallel Table of Rules and Authorities (http://www.gpo.gov/help/parallel_table.txt), an annually produced compendium that links sections of the US Code and Statutes at Large to sections of the Code of Federal Regulations.
+
+* A parser for the Office of the Law Revision Counsel's Table III tool for the US Code (http://uscode.house.gov/table3/table3years.htm). This table relates every section and subsection of every bill passed into public law to its equivalent section of the US Code, and its page in the Statutes at Large.
+
+
+See the wiki for more details on the project, and what's left to do:
+https://github.com/sunlightlabs/crosslaws/wiki
