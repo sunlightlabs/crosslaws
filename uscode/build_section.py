@@ -89,6 +89,13 @@ def title_filename(title, year_2_digits=10):
     args = map(int, (title, year_2_digits))
     return expanduser(join(USCODE_DIR, 'usc%02d.%02d' % tuple(args)))
 
+
+class Document(dict):
+
+    def finalize(self):
+        '''
+        '''
+        #pdb.set_trace()
             
         
 boundaries = {
@@ -104,13 +111,23 @@ boundaries = {
   
     }
 
-def gr(iterator, boundaries=boundaries):
+def group(iterator, boundaries=boundaries):
+    '''
+    Regroup the GPOLocator lines into chunks relating to title, 
+    chapters, and sections, each with internal sections grouped into
+    'sub documents', for lack of a more imaginitive name. Each document
+    contains a list of lines and mapping of code-argument tuples to
+    lines with those codeargs. 
+
+    This code is lengthy and convoluted in order to achieve the
+    regrouping in a single pass. 
+    '''
 
     I74 = ('I', '74')
     res = []
 
     lines = []
-    subdocs = []
+    subdocs = defaultdict(list)
     codemap = defaultdict(list)
     doc = {'lines': lines, 'docs': subdocs,
            'codemap': codemap} 
@@ -136,35 +153,44 @@ def gr(iterator, boundaries=boundaries):
         starting_complex_table = (code == 'c')
 
 
-        if codearg in sub_boundaries or starting_complex_table:
+        if codearg in sub_boundaries:# or starting_complex_table:
 
             # If already in a subdoc, append it
             if in_subdoc:
-                subdocs.append(subdoc)
+                subdoc['codemap'] = dict(subdoc['codemap'])
+                subdocs[subdoc_id].append(subdoc)
 
             # Start a new subdoc
             subdoc_lines = [line]
             subdoc_codemap = defaultdict(list, {codearg: [line]})
+            if codearg == I74:
+                subdoc_id = line.data.strip()
+            else:
+                subdoc_id = codearg
             subdoc = {'lines': subdoc_lines,
                       'codemap': subdoc_codemap}
             in_subdoc = True
 
+
         elif codearg in boundaries:
 
             if in_subdoc:
-                subdocs.append(subdoc)
+                subdoc['codemap'] = dict(subdoc['codemap'])
+                subdocs[subdoc_id].append(subdoc)
 
             # append the current doc
+            doc['codemap'] = dict(doc['codemap'])
             res.append(doc)
 
             # start a new one
             lines = [line]
             codemap = defaultdict(list, {codearg: [line]})
-            subdocs = []
+            subdocs = defaultdict(list)
             doc = {'lines': lines, 'docs': subdocs,
-                   'codemap': codemap} 
+                   'codemap': codemap, 'id': codearg} 
             in_subdoc = False
         
+
         else:
             if in_subdoc:
                 subdoc_lines.append(line)
@@ -183,5 +209,12 @@ if __name__ == "__main__":
     filename = title_filename(9, 10)
     fp = open(filename)
     lines = gpolocator.getlines(fp)
-    gg = gr(lines)
+    gg = group(lines)
+
+    #import chunks
+
+    #tt = chunks.Title(gg[1])
+    #xx = list(tt.chapter_section_toc())
+    #xx = tt.amendments()
+
     pdb.set_trace()
