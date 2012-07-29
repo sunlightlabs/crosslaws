@@ -48,6 +48,9 @@ class Stream(object):
         except IndexError:
             raise StopIteration
 
+    def previous(self):
+        return self.behind(1)
+
     def this(self):
         return self._stream[self.i]
 
@@ -92,17 +95,13 @@ class Node(list):
         token.node = new_node
         return new_node
 
-    def append(self, token, ambiguous_enums=map(Enum, 'iI')):
+    def append(self, token,
+               h=Enum('h'), H=Enum('H'),
+               i=Enum('i'), I=Enum('I'),
+               j=Enum('j'), J=Enum('J')):
 
         enum, text, linedata = token
-
         self_enum = self.enum
-        print '>', self_enum, enum, text
-
-#        if enum and enum == Enum('19A'):
-        if text and text.startswith("the taxable year in which the case concerning such individual or such indiv"):
-        # if text.startswith('1 family and the relatives of the members of such family, and such family or such relatives conduct the commercial fishing opera'):
-             import pdb;pdb.set_trace()
 
         try:
             is_root = self.is_root
@@ -117,7 +116,31 @@ class Node(list):
             return self._force_append(token)
 
         if enum.is_first_in_scheme():
-            print 'f'
+
+            # Disambiguate roman and alpahabetic 'i' and 'I'
+            if enum == i and self_enum == h:
+                # If the next enum is 'ii', the scheme is probably
+                # 'lower_roman'.
+                next_ = self.parser.stream.ahead(1)
+                if next_.enum.could_be_next_after(enum):
+                    return self.parent._force_append(token)
+
+                # Else if it's 'j', it's probably just 'lower'.
+                if next_.enum == j:
+                    return self.parent._force_append(token)
+
+            elif enum == I and self_enum == H:
+
+                # If the next enum is 'II', the scheme is probably
+                # 'upper_roman'.
+                next_ = self.parser.stream.ahead(1)
+                if next_.enum.could_be_next_after(enum):
+                    return self.parent._force_append(token)
+
+                # Else if it's 'J', it's probably just 'upper'.
+                if next_.enum == J:
+                    return self.parent._force_append(token)
+
             return self._force_append(token)
 
         if enum.was_nested:
@@ -125,10 +148,8 @@ class Node(list):
 
         if self_enum is None:
             self.parent._force_append(token)
+
         elif enum.could_be_next_after(self_enum):
-            if enum in ambiguous_enums:
-                # Put disambiguation logic here.
-                pass
             return self.parent._force_append(token)
 
         # If we get here, the previous append attempts all failed,

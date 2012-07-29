@@ -15,6 +15,7 @@ def main():
     bb = ss.body_lines()
     xx = Parser(bb)
     qq = xx.parse()
+    qq.tree()
 
     import pdb;pdb.set_trace()
     for doc in gg:
