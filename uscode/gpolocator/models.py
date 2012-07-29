@@ -168,7 +168,7 @@ class Section(Base):
             if not text.startswith('('):
                 body = text
                 enum = None
-                yield enum, body, line
+                yield (enum, body, line)
             else:
                 enum_text, body = re.split(r'\s+', text, 1)
                 enums = re.findall(r'\((\S+?)\)', enum_text)
@@ -180,12 +180,13 @@ class Section(Base):
                 #  (B, None, None)
                 #  (i, None, None)
                 #  (1, blah blah, GPOLocatorCode(...))
+                enums = enums[::-1]
                 while enums:
                     enum = enums.pop()
                     if not enums:
-                        yield enum, body, line
+                        yield (enum, body, line)
                     else:
-                        yield enum, None, None
+                        yield (enum, None, None)
 
     def misc(self):
         ignored = '''Amendments, Derivation, References In Text,

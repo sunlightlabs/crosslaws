@@ -2,7 +2,7 @@
 .. moduleauthor:: Thom Neale <twneale@gmail.com>
 
 
-This module exports an API for modeling the tabulations (aka "tabs") found
+This module exports an API for modeling the enumerations (aka "enums") found
 in documents that contain numbered paragraphs that are hierarchically related.
 
 Example Use
@@ -13,12 +13,8 @@ Use it like this:
 >>> Token('a') < Token('b')
 >>> True
 >>>
->>> Tab('3-a') < Tab('3-b')
+>>> Enum('3-a') < Enum('3-b')
 >>> True
-
-Classes
-++++++++++++++++
-
 '''
 import re
 import operator
@@ -35,7 +31,7 @@ _digits = '123456789'
 
 
 def romans():
-    '''Produce data for roman nuermal schemes.'''
+    '''Produce data for roman numeral schemes.'''
     ones = ('', 'i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix')
     tens = ('', 'x', 'xx', 'xxx', 'l')
     res = []
@@ -90,7 +86,7 @@ assert len(_schemes) == len(_first_scheme_tokens)
 #-----------------------------------------------------------------------------
 class UnrecognizedSchemeError(Exception):
     '''
-    If a tab's scheme can't be determined using simple
+    If an enum's scheme can't be determined using simple
     techniques, the tab warrants an inspection, so raise
     an error.
     '''
@@ -199,14 +195,14 @@ class Token(SchemeEntity):
                 res = []
 
                 # Test if it's multiple.
-                if tsetlen < tlen:
+                if (tsetlen == 1) and (tsetlen < tlen):
                     res.append('%s_%s' % (
                         case,
                         {2: 'doubles', 3: 'triples', 4: 'quads'}[tlen]
                         ))
 
                 # Test if it's upper_roman.
-                if tset & schemes['%s_roman' % case]:
+                if t in schemes['%s_roman' % case]:
                     res.append('%s_roman' % case)
 
                 res = set(res)
@@ -223,7 +219,7 @@ class Token(SchemeEntity):
 
     def is_first_in_scheme(self):
         '''
-        Determine whether this token is the forst token in any scheme.
+        Determine whether this token is the first token in any scheme.
         '''
         return self.text in self._first_scheme_tokens
 
@@ -480,14 +476,25 @@ class Enum(list, SchemeEntity):
         ordinality = collections.defaultdict(lambda: [])
         for s in self.get_schemes():
             try:
-                ordinality[s].append(_schemes_lists[s].index(text))
+                ord_ = _schemes_lists[s].index(text)
             except ValueError:
-                # Not in the schemes list; probably a compound tab like "4-a".
-                # Repeat the test with each token in the tab.
-                # Break on success?
-                for t in self._itertokens():
-                    for sc in t.get_schemes():
-                        ordinality[s].append(_schemes_lists[sc].index(t.text))
+                pass
+            else:
+                ordinality[s].append(ord_)
+                continue
+            # Not in the schemes list; probably a compound tab like "4-a".
+            # Repeat the test with each token in the tab.
+            # Break on success?
+            tokens = list(self._itertokens())
+            if len(tokens) == 1:
+                continue
+            for t in tokens:
+                for sc in t.get_schemes():
+                    try:
+                        ord_ = _schemes_lists[sc].index(t.text)
+                    except ValueError:
+                        continue
+                    ordinality[s].append(ord_)
         self.ordinality = ordinality
         return ordinality
 

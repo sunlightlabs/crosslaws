@@ -1,3 +1,5 @@
+import sys
+
 from gpolocator.parser import getlines
 from gpolocator.grouper import group
 from gpolocator.utils import title_filename
@@ -9,7 +11,7 @@ def main():
     lines = getlines(fp)
     gg = group(lines)
 
-    ss = gg[3].instance
+    ss = gg[int(sys.argv[1])].instance
     bb = ss.body_lines()
     xx = Parser(bb)
     qq = xx.parse()

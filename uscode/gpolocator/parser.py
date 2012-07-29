@@ -82,11 +82,17 @@ from collections import namedtuple
 
 
 class GPOLocatorLine(namedtuple('GPOLocatorLine', 'code arg data')):
+
     def __unicode__(self):
         return self.data
 
     def as_tuple(self):
         return self[:2]
+
+    @property
+    def codearg(self):
+        return self.code + self.arg
+
 
 #-----------------------------------------------------------------------------
 # Step 1: Identify bell codes and their arguments.
