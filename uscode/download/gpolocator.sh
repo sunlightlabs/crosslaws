@@ -1,5 +1,5 @@
 # Download and unzip all uscode files for 2011. 
-DIR=~/data/
+DIR=$PWD
 HERE=$PWD
 DEST=$DIR"uscode.house.gov/zip/2011/"
 mkdir -P $DIR
