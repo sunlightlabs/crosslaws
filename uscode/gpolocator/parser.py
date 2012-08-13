@@ -81,6 +81,10 @@ from functools import partial
 from collections import namedtuple
 
 
+class GPOLocatorText(unicode):
+    pass
+
+
 class GPOLocatorLine(namedtuple('GPOLocatorLine', 'code arg data')):
 
     def __unicode__(self):
@@ -93,6 +97,23 @@ class GPOLocatorLine(namedtuple('GPOLocatorLine', 'code arg data')):
     def codearg(self):
         return self.code + self.arg
 
+    @property
+    def _footnote_numbers(self, finditer=re.finditer):
+        for matchobj in finditer(r'\\(\d)\\', self.data):
+            # number, offset
+            yield matchobj.group(1), matchobj.start()
+
+    def footnotes(self):
+        return map(self._footnote_dict.get, self._footnote_numbers)
+
+    @property
+    def text(self):
+        text = self.data
+        for number, offset in self._footnote_numbers:
+            text = text.replace(r'\\%d\\' % number, '')
+
+        text.notes = self.footnotes
+        return text
 
 #-----------------------------------------------------------------------------
 # Step 1: Identify bell codes and their arguments.

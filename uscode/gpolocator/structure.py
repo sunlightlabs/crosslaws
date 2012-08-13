@@ -1,3 +1,4 @@
+import re
 import logbook
 
 from .utils import CachedAttribute
@@ -61,11 +62,23 @@ class Stream(object):
         return self._stream[self.i - n]
 
 
+class TextNode(list):
+    '''A text node can (sometimes) have children.'''
+
+    def __init__(self, content):
+        self.content = content
+
+    def __repr__(self):
+        return 'TextNode(%r)' % self.content
+
+
 class Node(list):
 
-    def __init__(self, enum, linedata, *kids):
+    def __init__(self, enum, linedata, text):
         self.enum = enum
-        self.extend(kids)
+        self.linedata = linedata
+        self.footnotes = []
+        self.extend([TextNode(text)])
         self.logger = logbook.Logger(level='DEBUG')
 
     def __repr__(self):
@@ -158,42 +171,43 @@ class Node(list):
         return self.parent.append(token)
 
     def tree(self, indent=0):
-        print ' ' * indent, self.enum
+        if self.linedata:
+            print ' ' * indent, self.enum, '[{0}, {1}]'.format(*self.linedata)
+            # if 16 < int(self.linedata.arg):
+            #     import pdb;pdb.set_trace()
+        else:
+            print ' ' * indent, self.enum
+        if self.footnotes:
+            for note in self.footnotes:
+                print 'NOTE:', note['number'], note['offset'],repr(note['text'])
         for node in self:
             if isinstance(node, Node):
                 node.tree(indent=indent + 2)
-            else:
-                print ' ' * indent, node
+            elif isinstance(node, TextNode):
+                if node.content is not None:
+                    print ' ' * indent, repr(node.content.encode('utf-8'))
 
 
 class Parser(object):
 
+    SKIP = 1
+
     def __init__(self, stream):
         stream = Stream(stream)
         node_cls = type('Node', (Node,), dict(stream=stream, parser=self))
-        root = node_cls(None, None)
+        root = node_cls(None, None, None)
         root.is_root = True
         self.root = root
         self.stream = stream
 
-        # The parser needs to remember the last token it saw for
-        # each gpo locator code encountered.
-        self.codemap = {}
-
     def parse(self):
 
         this = self.root
-        codemap = self.codemap
         before_append = self.before_append
+        after_append = self.after_append
+        SKIPPED = 1
 
         for token in self.stream:
-            print token
-
-            # Keep track of the most recent token for each codearg.
-            linedata = token.linedata
-            if linedata is not None:
-                # Nested enums have no linedata.
-                codemap[linedata.codearg] = token
 
             # Try and execute beford_append.
             appended_to = before_append(token)
@@ -202,18 +216,93 @@ class Parser(object):
             else:
                 appended_to = this.append(token)
 
+            after_append(token)
+
             # Change the parser's state.
-            if appended_to.enum is not None:
+            if appended_to is not SKIPPED and appended_to.enum:
                 this = appended_to
+
         return self.root
 
     def before_append(self, token):
+        raise NotImplemented
+
+    def after_append(self, token):
+        raise NotImplemented
+
+
+class GPOLocatorParser(Parser):
+
+    def __init__(self, *args, **kwargs):
+
+        super(GPOLocatorParser, self).__init__(*args, **kwargs)
+
+        # The parser needs to remember the last token it saw for
+        # each gpo locator code encountered.
+        self.codemap = {}
+
+        # Mapping of encountered footnote numbers to nodes in which
+        # they appear.
+        self.footnotes = {}
+
+    def before_append(self, token, finditer=re.finditer):
+
+        SKIPPED = 1
+        codemap = self.codemap
+
+        # Keep track of the most recent token for each codearg.
+        linedata = token.linedata
+        if linedata is not None:
+            # Nested enums have no linedata.
+            codemap[linedata.codearg] = token
 
         # I13 tail text is denoted with I32.
         linedata = token.linedata
         if linedata is not None:
-            if token.linedata.codearg == 'I32':
+
+            codearg = token.linedata.codearg
+            if codearg == 'I32':
 
                 # Get the most recent I13 node.
                 node = self.codemap['I13'].node
                 return node.parent._force_append(token)
+
+            if codearg == 'I17':
+                node = self.codemap['I12'].node
+                return node.parent._force_append(token)
+
+            if codearg == 'I28':
+                return SKIPPED
+
+        # Associate nodes with footnotes they contain.
+        if token.text:
+            for matchobj in finditer(r'\\(\d+)\\\x07N', token.text):
+                number, offset = self.matchobj_to_notedata(token, matchobj)
+                self.footnotes[number] = (token, offset)
+
+    def after_append(self, token):
+
+        # Match footnotes to their annotations in node text.
+        linedata = token.linedata
+        if linedata and linedata.codearg == 'I28':
+            target_token, note = self.token_to_note(token)
+            target_token.node.footnotes.append(note)
+
+    # Helper methods.
+    def matchobj_to_notedata(self, token, matchobj):
+        offset = matchobj.start()
+        number = matchobj.group(1)
+        return number, offset
+
+    def token_to_note(self, token):
+        text = token.text
+
+        # If the text doesn't start with\x07, it's not a note.
+        assert text[0] == '\x07'
+
+        number = text[3]
+        target_token, offset = self.footnotes[number]
+        text = re.sub(r'^\x07N\\(\d+)\\\s+', '', text)
+        note = dict(offset=offset, text=text, number=number)
+        return target_token, note
+

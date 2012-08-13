@@ -35,6 +35,21 @@ def _subdoc_generator(key1, key2=('I', '21')):
     return func
 
 
+def jsonval(*funcs):
+    '''Decorator to mark functions for
+    inclusion in json conversion. *funcs is a
+    list of functions to run the value through
+    before it gets added to the json--i.e.,
+    list for an iterator or generator.
+    '''
+    def decorator(f):
+        f.jsonval = True
+        f.jsonval_funcs = funcs
+        return f
+
+    return decorator
+
+
 class Base(object):
 
     __metaclass__ = Registry
@@ -48,6 +63,41 @@ class Base(object):
     @property
     def codemap(self):
         return self.data['codemap']
+
+    def json(self):
+        res = {}
+        for attr in dir(self):
+            method = getattr(self, attr)
+            if hasattr(method, 'jsonval') and method.jsonval:
+                value = method()
+                for func in filter(callable, method.jsonval_funcs):
+                    value = func(value)
+                res[attr] = value
+        return res
+
+    def extract_footnote_refs(self, text):
+        '''If any footnotes[^2] are in `text`, return
+        a sequence of number, offset pairs.
+        '''
+        for matchobj in re.finditer(r'\\(\d+)\\\x07N', text):
+            offset = matchobj.start()
+            number = matchobj.group(1)
+            yield number, offset
+
+    def parse_footenote_content(self, text):
+        '''Given text constituting a footnote ("[^2] So in original.")
+        return the footnote number and the text.
+        '''
+        matchobj = re.match(r'^\x07N\\(\d+)\\\s+', text)
+        if matchobj:
+            number = matchobj.group(1)
+            text = text.replace(matchobj.group(), '', 1)
+            return number, text
+
+    def get_notes(self):
+        notes = self.data['docs'][('I', '93')][0]['codemap'][('I', '28')]
+        for line in notes:
+            yield self.parse_footenote_content(line.data)
 
 
 class Title(Base):
@@ -64,9 +114,11 @@ class Title(Base):
             msg = 'unexpected format: %r'
             raise DataQualityError(msg % line.data)
 
-    def id(self):
+    @jsonval()
+    def enum(self):
         return self.enum_title[0]
 
+    @jsonval()
     def name(self):
         return self.enum_title[1]
 
@@ -84,19 +136,28 @@ class TitleTOC(Base):
     construction = _subdoc_generator('Legislative Construction')
     effective_date = _subdoc_generator('Effective Date')
 
+    @jsonval(list)
     def items(self, toc=namedtuple('TitleTocRow', 'chapter name section')):
-        '''Returns a sequence of 3-tuples like (chapter, name, section).
+        '''Returns a sequence of 4-tuples like
+        (chapter, name, section, notes).
         '''
+
         lines = self.data['docs'][('I', '93')][0]['lines']
         lines = iter(lines[3:])
+        footnote_dict = dict(self.get_notes())
         while True:
             try:
                 chapter, name, section = list(itertools.islice(lines, 3))
             except ValueError:
                 return
+
+            for obj in chapter, name, section:
+                obj._footnote_dict = footnote_dict
+
             chapter = re.sub(r'[.\s]+', '', chapter.data)
             name = name.data.strip()
             section = section.data.strip()
+
             yield toc(chapter, name, section)
 
 
@@ -119,9 +180,11 @@ class ChapterHeading(Base):
             msg = 'unexpected format: %r'
             raise DataQualityError(msg % line.data)
 
-    def id(self):
+    @jsonval()
+    def enum(self):
         return self.enum_title[0]
 
+    @jsonval()
     def name(self):
         return self.enum_title[1]
 
@@ -141,7 +204,7 @@ class ChapterHeading(Base):
 class Section(Base):
     applies_to = ('I', '80')
 
-    def id(self):
+    def enum(self):
         _, id_ = self.codemap[('I', '80')].first.data.split(' ', 1)
         return id_.strip()
 

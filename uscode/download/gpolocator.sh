@@ -1,6 +1,11 @@
-# Download and unzip all uscode files for 2010. 
-mkdir -P ~/data/uscode/gpolocator
-wget -m -l1 -nd  -P ~/data/uscode/gpolocator http://uscode.house.gov/zip/2010/
+# Download and unzip all uscode files for 2011. 
+DIR=~/data/
+HERE=$PWD
+DEST=$DIR"uscode.house.gov/zip/2011/"
+mkdir -P $DIR
+wget -m -l1 -P $DIR http://uscode.house.gov/zip/2011/
+cd $DEST
 for filename in `ls | xargs`; do unzip $filename; done
 rm `find *.zip | xargs`
+cd $HERE
 
