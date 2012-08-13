@@ -1,2 +1,4 @@
+from os.path import abspath, join, dirname
 
-USCODE_DIR = '/home/thom/data/uscode.house.gov/zip/2011'
+DATA_DIR = join(dirname(abspath(__file__)), '..', 'data')
+USCODE_DIR = join(DATA_DIR, 'uscode.house.gov/zip/2011')
