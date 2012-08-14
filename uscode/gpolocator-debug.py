@@ -20,7 +20,7 @@ def main():
     xx = GPOLocatorParser(bb)
     qq = xx.parse()
     qq.tree()
-    import pdb;pdb.set_trace()
+    # import pdb;pdb.set_trace()
 
     # xx = [x.instance for x in gg]
 

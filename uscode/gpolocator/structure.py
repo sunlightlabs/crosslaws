@@ -172,7 +172,7 @@ class Node(list):
 
     def tree(self, indent=0):
         if self.linedata:
-            print ' ' * indent, self.enum, '[{0}, {1}]'.format(*self.linedata)
+            print ' ' * indent, self.enum  # '[{0}, {1}]'.format(*self.linedata)
             # if 16 < int(self.linedata.arg):
             #     import pdb;pdb.set_trace()
         else:
@@ -185,7 +185,7 @@ class Node(list):
                 node.tree(indent=indent + 2)
             elif isinstance(node, TextNode):
                 if node.content is not None:
-                    print ' ' * indent, repr(node.content.encode('utf-8'))
+                    print ' ' * indent, node.content.encode('utf-8')
 
 
 class Parser(object):
@@ -288,7 +288,7 @@ class GPOLocatorParser(Parser):
             target_token, note = self.token_to_note(token)
             target_token.node.footnotes.append(note)
 
-    # Helper methods.
+    #  methods.
     def matchobj_to_notedata(self, token, matchobj):
         offset = matchobj.start()
         number = matchobj.group(1)

@@ -37,7 +37,7 @@ a paragraph (look for the Q code) and other weird things and simply skip them.
 So parsing this data basically means splitting each line into its code value,
 any arguments, and the following text, then swapping out the escape sequences
 for their unicode equivalents. You can then either process the codes somehow
-or toss them and keep the unicode. 
+or toss them and keep the unicode.
 
 This module does that for a subset of the GPOLocator codes used in
 title 8 of the US Code. It'd be easy to extend to others. Below is an example
