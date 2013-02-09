@@ -1,134 +1,207 @@
-import sys, re, itertools, unicodedata
-from collections import OrderedDict
+# -*- coding: utf-8 -*-
+import re
+import logging
 
-# figure out what kind of line it is
-# subexpressions
-SUBEXPRESSIONS = {
-    'part_label':  r'Part?(?P<plural_parts>s?),?',
-    'cfr_sections': r'(?P<cfr_sections>[0-9A-Za-z ,-]+)',
-    'cfr': r'(?P<cfr>\d+)',
-    'usc_section': r'(?P<usc_section>\w[\w -]*)',
-    'usc_title': r'^\d+ U.S.C.[\(\)\w\. ]*$',
-}
-LINE_TYPES = {
-    'title_line': re.compile(r"{usc_title}".format(**SUBEXPRESSIONS)),
-    'section_line': re.compile(r"^  [ ]*{usc_section}\.\.+{cfr} {part_label} {cfr_sections}\x03?$".format(**SUBEXPRESSIONS)),
-    'part_line': re.compile(r"^   [ ]*{cfr} {part_label} {cfr_sections}$".format(**SUBEXPRESSIONS)),
-    'part_line_ctd': re.compile(r"^   [ ]*{cfr_sections}$".format(**SUBEXPRESSIONS)),
-}
-def classify(line):
-    return dict([
-        (type, expr.match(line))
-    for type, expr in LINE_TYPES.items()])
+# from tater.node import Node, matches, matches_subtypes
+from tater.core import RegexLexer, Rule, bygroups, include
+from tater.tokentype import Token
+from tater.common import re_divisions, re_enum
 
-# actually do work
-def parse_ptar(file):
-    full_contents = file.read()
-    pages = re.compile(r'\[\[[\w\s]+\]\]').split(full_contents)[1:]
-    lines = re.compile(r"[\r\n]+").split("\n".join(pages))
-    del full_contents, pages
-    
-    # line types
-    
-    current_title = None
-    current_section = None
-    current_cfr = None
-    parsed = OrderedDict()
-    
-    for line in lines:
-        if not line.strip():
-            continue
-        
-        classified = classify(line)
-        line_data = None
 
-        if classified['title_line']:
-            current_title = line
-            parsed[current_title] = OrderedDict()
-            continue
-        
-        if classified['section_line']:
-            line_data = classified['section_line'].groupdict()
-            current_section = line_data['usc_section']
-            parsed[current_title][current_section] = OrderedDict()
-        
-        if classified['section_line'] or classified['part_line']:
-            if not line_data:
-                line_data = classified['part_line'].groupdict()
-            current_cfr = line_data['cfr']
-            parsed[current_title][current_section][current_cfr] = []
-        
-        if any([classified['section_line'], classified['part_line'], classified['part_line_ctd']]):
-            if not line_data:
-                line_data = classified['part_line_ctd'].groupdict()
-            sections_raw = line_data['cfr_sections']
-            sections_split = [ref.strip() for ref in sections_raw.split(",")]
-            sections = [ref for ref in sections_split if ref]
+class Tokenizer(RegexLexer):
+    DEBUG = logging.DEBUG
 
-            parsed[current_title][current_section][current_cfr].extend(sections)
-        
-        if line == "United States Statutes at Large":
-            print 'done for now'
-            return parsed
-        
-        if not any(classified):
-            print 'uh-oh', line
-            print parsed
-            sys.exit(1)
+    # re_skip = r'[,\s]+'
 
-# borrowed from Django
-def slugify(value):
-    """
-    Normalizes string, converts to lowercase, removes non-alpha characters,
-    and converts spaces to hyphens.
-    """
-    value = unicodedata.normalize('NFKD', value).encode('ascii', 'ignore')
-    value = unicode(re.sub('[^\w\s-]', '', value).strip().lower())
-    return re.sub('[-\s]+', '-', value)
+    r = Rule
+    t = Token
+    dont_emit = (t.Whitespace, t.Linebreak, t.Comma, t.Dots)
 
-def add_to_db(parsed):
-    from pymongo.connection import Connection
-    db = Connection().laws
+    tokendefs = {
 
-    for title_name, title in parsed.items():
-        for section_name, section in title.items():
-            usc_id = '%s:%s' % (slugify(unicode(title_name)), slugify(unicode(section_name)))
-            usc_search = list(db.uscs.find({'usc_id': usc_id}))
-            
-            if usc_search:
-                usc = usc_search[0]
-            else:
-                usc = {
-                    'usc_id': usc_id,
-                    'title': title_name,
-                    'section': section_name,
-                    'cfs_ids': []
-                }
-                db.uscs.save(usc, safe=True)
-            
-            for cfr_name, cfr in section.items():
-                for cfr_part in cfr:
-                    cfr_id = '%s:%s' % (slugify(unicode(cfr_name)), slugify(unicode(cfr_part)))
-                    cfr_search = list(db.cfrs.find({'cfr_id': cfr_id}))
+        'whitespace': [
+            r(t.Whitespace, r'[ ]+'),
+            ],
 
-                    if cfr_search:
-                        c = cfr_search[0]
-                    else:
-                        c = {
-                            'cfr_id': cfr_id,
-                            'chapter': cfr_name,
-                            'section': cfr_part,
-                            'usc_ids': []
-                        }
-                        db.cfrs.save(c, safe=True)
-                    
-                    db.cfrs.update({'cfr_id': cfr_id}, {'$addToSet': {'usc_ids': usc_id}}, safe=True)
-                    db.uscs.update({'usc_id': usc_id}, {'$addToSet': {'cfr_ids': cfr_id}}, safe=True)
+        'linebreaks': [
+            r(t.Linebreak, r'\r\n'),
+            ],
 
-if __name__ == "__main__":
-    if len(sys.argv) == 2:
-        parsed = parse_ptar(open(sys.argv[1], 'r'))
-        add_to_db(parsed)
-    else:
-        print "Please specify a file to import."
-        sys.exit(1)
+        'meta': [
+            r(t.PageBreak, r'\[\[Page (\d+)\]\]'),
+            ],
+
+        'root': [
+
+            include('usc'),
+            include('stat'),
+            include('publ'),
+            include('presidential_documents'),
+            include('notices'),
+            include('proclamations'),
+            include('executive_orders'),
+            include('determinations'),
+            include('memorandums'),
+            include('reorganization_plans'),
+            ],
+
+        'usc': [
+            include('meta'),
+            include('whitespace'),
+            include('linebreaks'),
+            r(bygroups(t.USC.Title, t.USC, t.USC.IRC.Year),
+              r'(26) (U\.S\.C\.) \((\d{4}) I\.R\.C\.\)', 'usc.section'),
+            r(bygroups(t.USC.Title, t.USC), r'(\w+) (U\.S\.C\.)', 'usc.section'),
+            ],
+
+        'usc.section': [
+            include('meta'),
+            r(bygroups(t.EtSeq), ' +(et seq)'),
+            r(bygroups(t.PrecedingNote), ' +(preceding note)'),
+            r(bygroups(t.Note), ' (note)'),
+            r(bygroups(t.USC.Section), r'\x03?\r\n  ((?:\w+)(?:\-\w+)?)'),
+            r(t.USC.Section, r'((?:\w+)(?:\-\w+)?)'),
+            r(t.USC.Section.Range, r'\-\-'),
+            r(t.Dots, r'\.{2,}', 'cfr'),
+            r(bygroups(t.USC.Appendix), '\s+(Appendix)'),
+            ],
+
+        'cfr': [
+            include('meta'),
+            r(bygroups(t.CFR.Title), '(\d+) Parts?', 'cfr.parts'),
+            r(bygroups(t.CFR.Title), '(\d+) Par', 'cfr.parts'),
+            r(bygroups(t.CFR.Title), '\s{3,}(\d+) Parts?', 'cfr.parts'),
+
+            # Kooky continuation of previous line.
+            r(t.Whitespace, '\s{3,}', 'cfr.parts'),
+            ],
+
+        'cfr.parts': [
+
+            include('meta'),
+            # Return to cfr on hitting a line break.
+            r(bygroups(t.Month, t.Day, t.Notice.Year),
+              r'\r\n  (\w+\.?) (\d+), (\w{4})', pop=2),
+            r(bygroups(t.USC.Section), r'\r\n  ((?:\w+)(?:\-\w+)?)', pop=2),
+            r(t.CFR.Part.Range, r'\-\-\r\n\s+'),
+            r(t.CFR.Part.Range, r'\-\-'),
+            include('whitespace'),
+            r(t.Comma, r','),
+
+            # Handle idiot situation where "302-\r\na"
+            r(t.CFR.Part, '((?:\w+)\-\r\n\s+(?:\-\w+)?)'),
+
+            # Handle common case.
+            r(t.CFR.Part, '((?:\w+)(?:\-\w+)?)'),
+            ],
+
+        'stat': [
+            include('meta'),
+            r(t.Heading, r'United States Statutes at Large'),
+            r(bygroups(t.Stat.Chapter),
+              r'(?:\x03\r\n)?(\w+) Stat\.', 'stat.section'),
+            ],
+
+        'stat.section': [
+            include('meta'),
+            r(bygroups(t.Stat.Page), r'\x03?\r\n  ((?:\w+)(?:\-\w+)?)'),
+            r(bygroups(t.Stat.Page), r'((?:\w+)(?:\-\w+)?)'),
+            r(t.Stat.Page.Range, r'\-\-'),
+            r(bygroups(t.EtSeq), ' +(et seq)'),
+            r(t.Dots, r'\.{2,}', 'cfr'),
+            ],
+
+
+        'publ': [
+            include('meta'),
+            r(t.Heading, r'Public Laws', 'publ'),
+            r(bygroups(t.Publ.Congress, t.Publ.Number),
+              r'(?:\x03\r\n)?(\w+)\-(\w+)'),
+            r(t.Dots, r'\.{2,}', 'cfr'),
+            ],
+
+        'presidential_documents': [
+            r(t.Heading, r'Presidential Documents:',
+              push='presidential_documents'),
+            r(bygroups(t.Month, t.Day, t.Year),
+              r'\r\n  (\w+\.?) (\d+), (\w{4})'),
+            r(t.Dots, r'\.{2,}', 'cfr'),
+            ],
+
+        'notices': [
+            include('meta'),
+            r(t.Heading, r'Notices:', 'notices'),
+            r(bygroups(t.Month, t.Day, t.Year),
+              r'\r\n  (\w+\.?) (\d+), (\w{4})'),
+            r(t.Dots, r'\.{2,}', 'cfr'),
+            ],
+
+        'proclamations': [
+            include('meta'),
+            r(t.Heading, r'Proclamations:', 'proclamations'),
+            r(bygroups(t.Month, t.Day, t.Year),
+              r'\r\n  (\w+\.?) (\d+), (\w{4})'),
+            r(t.Proclamation.Number, '\d+'),
+            r(t.Dots, r'\.{2,}', ['proclamations', 'cfr']),
+            ],
+
+        'executive_orders': [
+            include('meta'),
+            r(t.Heading, r'Executive Orders:', 'executive_orders'),
+            ],
+
+        'determinations': [
+            include('meta'),
+            r(t.Heading, r'Determinations:', 'determinations'),
+            ],
+
+        'memorandums': [
+            include('meta'),
+            r(t.Heading, r'Memorandums:', 'memorandums'),
+            ],
+
+        'reorganization_plans': [
+            include('meta'),
+            r(t.Heading, r'Reorganization Plans:', 'reorganization_plans'),
+            ],
+        }
+
+
+t = Token
+
+
+class Ptar(object):
+
+    def __init__(self, text):
+        self.text = text
+
+    def raw(self):
+        return self.text[self.text.find('\r\nPresidential Documents:\r\n'):]
+        _, text = re.split(r'\[\[Page \d+\]\]', self.text, 1)
+        return text
+
+    def iterpages(self):
+        return iter(re.split(r'\[\[Page \d+\]\]', self.text)[1:])
+
+    def itersources(self):
+        for page in self.iterpages():
+            import pdb; pdb.set_trace()
+
+
+
+
+def main():
+    with open('ptar/data/parallel_table.txt') as f:
+        text = f.read()
+
+    text = Ptar(text).raw()
+    for item in Tokenizer().tokenize(text):
+        print item
+        pos, token, text = item
+        # import pdb; pdb.set_trace()
+        # if token is t.USC:
+        #     import pdb; pdb.set_trace()
+
+
+if __name__ == '__main__':
+    main()
