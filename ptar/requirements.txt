@@ -1,1 +1,2 @@
 pymongo
+-e git://github.com/twneale/tater.git
