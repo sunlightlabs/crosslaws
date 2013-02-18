@@ -12,7 +12,8 @@ def main():
     tokenizer = Tokenizer()
     items = tokenizer.tokenize(text)
     tree = parse(Sources, items)
-    import pdb; pdb.set_trace()
+    tree.printnode()
+    # import pdb; pdb.'set_trace()
 
 if __name__ == '__main__':
     main()

@@ -30,7 +30,7 @@ class Tokenizer(RegexLexer):
             r(t.PageBreak, r'\s+\[\[Page (\d+)\]\]\s+'),
             r(t.Heading, r'Memorandums:', 'memorandums'),
             r(t.Heading, r'United States Statutes at Large\r\n',
-                #pop=2,
+                pop=2,
                 push='stat'),
             r(t.Heading, r'Public Laws\r\n', pop=2, push='publ'),
             r(t.Heading, r'Presidential Documents:', 'presidential_documents'),
@@ -137,7 +137,7 @@ class Tokenizer(RegexLexer):
         'publ': [
             include('meta'),
             r(bygroups(t.Publ.Congress, t.Publ.Number),
-              r'(?:\x03\r\n)?(  )?(\w+)\-(\w+)'),
+              r'(?:\x03\r\n)?(?:  )?(\w+)\-(\w+)'),
             r(t.Dots, r'\.{2,}', 'cfr'),
             ],
 
@@ -214,7 +214,7 @@ class Ptar(object):
 
     def raw(self):
         # return self.text[self.text.index('\r\nReorganization Plans:\r\n'):]
-        return self.text[self.text.index('\r\nUnited States Statutes at Large\r\n'):]
+        # return self.text[self.text.index('\r\nUnited States Statutes at Large\r\n'):]
         _, text = re.split(r'\[\[Page \d+\]\]', self.text, 1)
         return text
 

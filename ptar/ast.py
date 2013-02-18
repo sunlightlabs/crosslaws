@@ -31,46 +31,55 @@ class Sources(Base):
 
     @matches((t.Heading, 'Public Laws\r\n'))
     def start_publ(self, *items):
+        # import pdb; pdb.set_trace()
         print 'STARTING PUBL'
         return self.descend(Publ)
 
     @matches((t.Heading, r'Presidential Documents:'))
     def start_presidential_docs(self, *items):
+        # import pdb; pdb.set_trace()
         print 'STARTING PRES DOCS'
         return self.descend(PresidentialDoc)
 
     @matches((t.Heading, r'Notices:'))
     def start_notices(self, *items):
+        # import pdb; pdb.set_trace()
         print 'STARTING NOTICES'
         return self.descend(Notices)
 
     @matches((t.Heading, r'Executive Orders:'))
     def start_exec_orders(self, *items):
+        # import pdb; pdb.set_trace()
         print 'STARTING EXEC ORDERS'
         return self.descend(ExecOrder)
 
     @matches((t.Heading, r'Determinations:'))
     def start_determinations(self, *items):
+        # import pdb; pdb.set_trace()
         print 'STARTING DETERMINATIONS'
         return self.descend(Determinations)
 
     @matches((t.Heading, r'Directives:'))
     def start_directives(self, *items):
+        # import pdb; pdb.set_trace()
         print 'STARTING DIRECTIVES'
         return self.descend(Directives)
 
     @matches((t.Heading, r'Memorandums:'))
     def start_memorandums(self, *items):
+        # import pdb; pdb.set_trace()
         print 'STARTING MEMORANDUMS'
         return self.descend(Memorandum)
 
     @matches((t.Heading, r'Proclamations:'))
     def start_proclamations(self, *items):
+        # import pdb; pdb.set_trace()
         print 'STARTING PROCLAMATIONS'
         return self.descend(Proclamations)
 
     @matches((t.Heading, r'Reorganization Plans:'))
     def start_reorg_plans(self, *items):
+        # import pdb; pdb.set_trace()
         print 'STARTING REORG PLANS'
         return self.descend(ReorgPlan)
 
@@ -80,12 +89,12 @@ class CFR(Base):
     class Title(Base):
 
         @matches(t.CFR.Part)
-        def handle_title(self, *items):
+        def handle_part(self, *items):
             return self.descend(CFR.Part, items)
 
-        @matches(t.CFR.Part)
-        def handle_part(self, *items):
-            return self.parent.descend(CFR.Part, items)
+        # @matches(t.CFR.Part)
+        # def handle_part(self, *items):
+        #     return self.parent.descend(CFR.Part, items)
 
         @matches(t.CFR.Part, t.Range, t.CFR.Part)
         def handle_part_range(self, *items):
@@ -95,8 +104,7 @@ class CFR(Base):
             range_.descend(CFR.Part, part2)
             return range_
 
-        order = [handle_part_range,
-                 handle_part]
+        order = [handle_part_range, handle_part]
 
     class Part(Base):
         '''CFR part'''
