@@ -31,8 +31,9 @@ class Tokenizer(RegexLexer):
             ],
 
         'enumeration': [
-            r(t.Enumeration, u'((?:\w+)(?:\u2013\w+)?)'),
+            r(t.Prec, 'prec'),
             r(t.Note, 'nt'),
+            r(t.Enumeration, u'((?:\w+)(?:\u2013\w+)?)'),
             ],
 
         'subdivs': [
