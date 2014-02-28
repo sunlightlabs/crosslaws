@@ -12,8 +12,9 @@ import ipdb
 # The scrapers grab the URLs for each year from 1789 to 2011, go one directory down to grab the directory, then go one directory below and grab the whole page.  THIS CODE TAKES A WHILE TO RUN.  It may be better to tweak just for the years you want.  Also, could use some refactoring, e.g. merge some of the functions.
 
 # GLOBAL VARIABLES
-years = [ 1950 ]
-LIMIT_SUBSUBRELEASES = True
+years = range(1944, 2009)
+years = { 1950 }
+LIMIT_SUBSUBRELEASES = False
 LIMIT = False
 
 
@@ -36,10 +37,10 @@ def mainscraper(content): #function to parse Table 3 website
 				        #print unitext, url
 				        #releases += [(unitext, url)]
 					subreleases += add_subrelease(url)
-					return subreleases
+					#return subreleases
 				else:
 					pass
-	return None#releases, subreleases
+	return subreleases #releases, subreleases
 
 def subscraper(content): #function to parse Table 3 website
 	doc = etree.parse(StringIO(content), parser=etree.HTMLParser())
@@ -106,6 +107,38 @@ def _process_table_content_row( table_content_row ):
 
 	return row_val_dict
 
+def _parse_legislative_changes_page( page ):
+	doc = etree.parse(StringIO(page), parser=etree.HTMLParser())
+	tbl = doc.find('//table')
+	
+	caption_dict = {}
+	
+	caption = tbl[ 1 ]
+	
+	assert caption.tag == 'caption'
+	
+	assert len( caption ) == 6
+	
+	_process_caption_span( 'congress', caption[0], caption_dict )
+	_process_caption_span( 'statutesatlargevolume', caption[1], caption_dict )
+	_process_caption_span( 'textdate', caption[2], caption_dict )
+	_process_caption_span( 'prioract', caption[3], caption_dict )
+	_process_caption_span( 'act', caption[4], caption_dict )
+	_process_caption_span( 'nextact', caption[5], caption_dict )
+	
+	table_header_1 = tbl[3]
+	table_header_2 = tbl[4]
+	
+	#print caption_dict
+	
+	i = 6
+	while i < len( tbl ) - 1:
+		table_content_row = tbl[i]
+		row_val_dict = _process_table_content_row( table_content_row )
+		    #print row_val_dict
+		i += 1
+
+	
 def main():
 	dataset = []
 	x = add_release("http://uscode.house.gov/table3/table3years.htm") #Could also use "/alltable3statutesatlargevolumes.html"
@@ -114,36 +147,7 @@ def main():
 
 	# get the tables out
 	for page in dataset:
-		doc = etree.parse(StringIO(page), parser=etree.HTMLParser())
-		tbl = doc.find('//table')
-
-		caption_dict = {}
-
-		caption = tbl[ 1 ]
-		
-		assert caption.tag == 'caption'
-
-		assert len( caption ) == 6
-
-		_process_caption_span( 'congress', caption[0], caption_dict )
-		_process_caption_span( 'statutesatlargevolume', caption[1], caption_dict )
-		_process_caption_span( 'textdate', caption[2], caption_dict )
-		_process_caption_span( 'prioract', caption[3], caption_dict )
-		_process_caption_span( 'act', caption[4], caption_dict )
-		_process_caption_span( 'nextact', caption[5], caption_dict )
-
-		table_header_1 = tbl[3]
-		table_header_2 = tbl[4]
-
-		print caption_dict
-
-		i = 6
-		while i < len( tbl ) - 1:
-                    table_content_row = tbl[i]
-		    row_val_dict = _process_table_content_row( table_content_row )
-		    print row_val_dict
-		    i += 1
-		
+		_parse_legislative_changes_page( page )
 		#ipdb.set_trace()
 
 		#print row_val_dict
