@@ -12,10 +12,10 @@ import ipdb
 # The scrapers grab the URLs for each year from 1789 to 2011, go one directory down to grab the directory, then go one directory below and grab the whole page.  THIS CODE TAKES A WHILE TO RUN.  It may be better to tweak just for the years you want.  Also, could use some refactoring, e.g. merge some of the functions.
 
 # GLOBAL VARIABLES
-years = range(1944, 2009)
+years = range(0, 2009)
 years = { 1950 }
 LIMIT_SUBSUBRELEASES = False
-LIMIT = False
+LIMIT = 5
 
 
 def mainscraper(content): #function to parse Table 3 website
@@ -55,7 +55,12 @@ def subscraper(content): #function to parse Table 3 website
 				url = "http://uscode.house.gov/table3/" + addy
 				#print text, url
 				#releases += [(text, url)]
-				subsubreleases.append( add_subsubrelease(url) )
+
+				page_content = add_subsubrelease(url)
+				#ipdb.set_trace()
+				parsed_content = _parse_legislative_changes_page( page_content )
+				parsed_content[ 'URL' ] = url
+				subsubreleases.append( parsed_content )
 				if LIMIT_SUBSUBRELEASES and len( subsubreleases ) == LIMIT:
 					return subsubreleases
 	return	subsubreleases
@@ -131,26 +136,33 @@ def _parse_legislative_changes_page( page ):
 	
 	#print caption_dict
 	
+	rows = []
 	i = 6
 	while i < len( tbl ) - 1:
 		table_content_row = tbl[i]
 		row_val_dict = _process_table_content_row( table_content_row )
+		rows.append( row_val_dict )
 		    #print row_val_dict
 		i += 1
 
+	caption_dict[ 'rows' ] = rows
 	
+	return caption_dict
+
 def main():
 	dataset = []
 	x = add_release("http://uscode.house.gov/table3/table3years.htm") #Could also use "/alltable3statutesatlargevolumes.html"
 	if x != None:
 		dataset += x
+	
+	simplejson.dump(dataset, open(sys.argv[1],'w'))
 
 	# get the tables out
-	for page in dataset:
-		_parse_legislative_changes_page( page )
-		#ipdb.set_trace()
+	# for page in dataset:
+	# 	_parse_legislative_changes_page( page )
+	# 	#ipdb.set_trace()
 
-		#print row_val_dict
+	# 	#print row_val_dict
 
 if __name__ == '__main__':
 	main()
