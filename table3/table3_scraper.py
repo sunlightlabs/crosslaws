@@ -12,9 +12,9 @@ import ipdb
 # The scrapers grab the URLs for each year from 1789 to 2011, go one directory down to grab the directory, then go one directory below and grab the whole page.  THIS CODE TAKES A WHILE TO RUN.  It may be better to tweak just for the years you want.  Also, could use some refactoring, e.g. merge some of the functions.
 
 # GLOBAL VARIABLES
-years = [ 1950 ]
+years = [2010]
 LIMIT_SUBSUBRELEASES = True
-LIMIT = 5
+LIMIT = 50
 
 
 def mainscraper(content): #function to parse Table 3 website
@@ -52,6 +52,7 @@ def subscraper(content): #function to parse Table 3 website
 			for m_element in d_element.xpath('a'):
 				addy = m_element.attrib['href']
 				url = "http://uscode.house.gov/table3/" + addy
+				print addy
 				#print text, url
 				#releases += [(text, url)]
 				subsubreleases.append( add_subsubrelease(url) )
@@ -83,23 +84,27 @@ def add_subsubrelease(url): #function to grab sub, sub page data
 	if response.status != 200:
 	    sys.stderr.write('Error, returned status: %s\n' % response.status)
 	    sys.exit(1) #bomb out, non-zero return indicates error
-	print url
 	# print content
-	return content
+	return url, content
 	
 	
 
 def main():
 	dataset = []
 	x = add_release("http://uscode.house.gov/table3/table3years.htm") #Could also use "/alltable3statutesatlargevolumes.html"
-	if x != None:
-		dataset += x
-
+	for filename, html_string in x:
+		final_pagename = filename.split('/')[-1]
+		with open( final_pagename, 'w' ) as f:
+			f.write( html_string )
+		sys.stderr.write( "Wrote %s\n" % ( final_pagename ) )
+		#with open( filename, 'w' ) as  
+	#if x != None:
+	#	dataset += x
+	#	ipdb.set_trace()
 	# get the tables out
-	for page in dataset:
-		doc = etree.parse(StringIO(page), parser=etree.HTMLParser())
+	#for page in dataset:
+	#	doc = etree.parse(StringIO(page), parser=etree.HTMLParser())
 
-		ipdb.set_trace()
 
 if __name__ == '__main__':
 	main()
@@ -108,5 +113,5 @@ dataset = []
 	
 
 #and save!  The data generated 
-ipdb.set_trace()
+#ipdb.set_trace()
 #simplejson.dump(dataset, open(sys.argv[1],'w'))
