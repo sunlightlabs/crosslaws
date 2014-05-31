@@ -11,10 +11,15 @@ import ipdb
 # Table Three Scraper http://uscode.house.gov/table3/table3years.htm
 # The scrapers grab the URLs for each year from 1789 to 2011, go one directory down to grab the directory, then go one directory below and grab the whole page.  THIS CODE TAKES A WHILE TO RUN.  It may be better to tweak just for the years you want.  Also, could use some refactoring, e.g. merge some of the functions.
 
+# This script downloads files into the current directory
+
 # GLOBAL VARIABLES
-years = [2010]
-LIMIT_SUBSUBRELEASES = True
-LIMIT = 50
+# Specify the years you want in a list. 
+years = [1950]
+
+# for testing purposes, the number of files downloaded can be limited.
+LIMIT_SUBSUBRELEASES = False
+LIMIT = 5000
 
 
 def mainscraper(content): #function to parse Table 3 website
@@ -26,11 +31,9 @@ def mainscraper(content): #function to parse Table 3 website
 			text = d_element.xpath('a')[0].text
 			unitext = unicode(text).encode(sys.stdout.encoding, 'replace')
 			for m_element in d_element.xpath('a'):
-				
 				addy = m_element.attrib['href']
 				year = addy.replace( 'year', '' )
 				year = year.replace( '.htm', '' )
-				print year 
 				if int( year ) in set( years ): 
 					url = "http://uscode.house.gov/table3/" + addy
 				        #print unitext, url
@@ -108,9 +111,6 @@ def main():
 
 if __name__ == '__main__':
 	main()
-
-dataset = []
-	
 
 #and save!  The data generated 
 #ipdb.set_trace()
