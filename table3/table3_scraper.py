@@ -3,7 +3,7 @@ import os, sys
 import httplib2
 from lxml import etree
 from StringIO import StringIO
-import mx.DateTime
+#import mx.DateTime
 import re
 import simplejson
 import ipdb
@@ -14,12 +14,14 @@ import ipdb
 # This script downloads files into the current directory
 
 # GLOBAL VARIABLES
-# Specify the years you want in a list. 
-years = [1950]
+
+# Specify the years you want in a set
+years = { 1950 }
 
 # for testing purposes, the number of files downloaded can be limited.
 LIMIT_SUBSUBRELEASES = False
 LIMIT = 5000
+
 
 
 def mainscraper(content): #function to parse Table 3 website
@@ -39,10 +41,10 @@ def mainscraper(content): #function to parse Table 3 website
 				        #print unitext, url
 				        #releases += [(unitext, url)]
 					subreleases += add_subrelease(url)
-					return subreleases
+					#return subreleases
 				else:
 					pass
-	return None#releases, subreleases
+	return subreleases #releases, subreleases
 
 def subscraper(content): #function to parse Table 3 website
 	doc = etree.parse(StringIO(content), parser=etree.HTMLParser())
@@ -58,7 +60,12 @@ def subscraper(content): #function to parse Table 3 website
 				print addy
 				#print text, url
 				#releases += [(text, url)]
-				subsubreleases.append( add_subsubrelease(url) )
+
+				page_content = add_subsubrelease(url)
+				#ipdb.set_trace()
+				parsed_content = _parse_legislative_changes_page( page_content )
+				parsed_content[ 'URL' ] = url
+				subsubreleases.append( parsed_content )
 				if LIMIT_SUBSUBRELEASES and len( subsubreleases ) == LIMIT:
 					return subsubreleases
 	return	subsubreleases
@@ -90,7 +97,61 @@ def add_subsubrelease(url): #function to grab sub, sub page data
 	# print content
 	return url, content
 	
+
+def _process_caption_span( expected_class, caption_span, caption_dict ):
+    assert caption_span.get('class') == expected_class
+
+    text_val = " ".join ( caption_span.itertext() )
+
+    caption_dict[ caption_span.get('class') ] = text_val
+
+def _process_table_content_row( table_content_row ):
+	assert( len( table_content_row) == 5 )
+	row_val_dict = {}
+	_process_caption_span( 'actsection', table_content_row[0], row_val_dict )
+	_process_caption_span( 'statutesatlargepage', table_content_row[1], row_val_dict )
+	_process_caption_span( 'unitedstatescodetitle', table_content_row[2], row_val_dict )
+	_process_caption_span( 'unitedstatescodesection', table_content_row[3], row_val_dict )
+	_process_caption_span( 'unitedstatescodestatus', table_content_row[4], row_val_dict )
+
+	return row_val_dict
+
+def _parse_legislative_changes_page( page ):
+	doc = etree.parse(StringIO(page), parser=etree.HTMLParser())
+	tbl = doc.find('//table')
 	
+	caption_dict = {}
+	
+	caption = tbl[ 1 ]
+	
+	assert caption.tag == 'caption'
+	
+	assert len( caption ) == 6
+	
+	_process_caption_span( 'congress', caption[0], caption_dict )
+	_process_caption_span( 'statutesatlargevolume', caption[1], caption_dict )
+	_process_caption_span( 'textdate', caption[2], caption_dict )
+	_process_caption_span( 'prioract', caption[3], caption_dict )
+	_process_caption_span( 'act', caption[4], caption_dict )
+	_process_caption_span( 'nextact', caption[5], caption_dict )
+	
+	table_header_1 = tbl[3]
+	table_header_2 = tbl[4]
+	
+	#print caption_dict
+	
+	rows = []
+	i = 6
+	while i < len( tbl ) - 1:
+		table_content_row = tbl[i]
+		row_val_dict = _process_table_content_row( table_content_row )
+		rows.append( row_val_dict )
+		    #print row_val_dict
+		i += 1
+
+	caption_dict[ 'rows' ] = rows
+	
+	return caption_dict
 
 def main():
 	dataset = []
@@ -108,10 +169,5 @@ def main():
 	#for page in dataset:
 	#	doc = etree.parse(StringIO(page), parser=etree.HTMLParser())
 
-
 if __name__ == '__main__':
 	main()
-
-#and save!  The data generated 
-#ipdb.set_trace()
-#simplejson.dump(dataset, open(sys.argv[1],'w'))
