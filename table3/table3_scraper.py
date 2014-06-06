@@ -6,7 +6,7 @@ from StringIO import StringIO
 #import mx.DateTime
 import re
 import simplejson
-import ipdb
+
 
 # Table Three Scraper http://uscode.house.gov/table3/table3years.htm
 # The scrapers grab the URLs for each year from 1789 to 2011, go one directory down to grab the directory, then go one directory below and grab the whole page.  THIS CODE TAKES A WHILE TO RUN.  It may be better to tweak just for the years you want.  Also, could use some refactoring, e.g. merge some of the functions.
@@ -62,7 +62,7 @@ def subscraper(content): #function to parse Table 3 website
 				#releases += [(text, url)]
 
 				page_content = add_subsubrelease(url)
-				#ipdb.set_trace()
+
 				parsed_content = _parse_legislative_changes_page( page_content )
 				parsed_content[ 'URL' ] = url
 				subsubreleases.append( parsed_content )
@@ -161,13 +161,7 @@ def main():
 		with open( final_pagename, 'w' ) as f:
 			f.write( html_string )
 		sys.stderr.write( "Wrote %s\n" % ( final_pagename ) )
-		#with open( filename, 'w' ) as  
-	#if x != None:
-	#	dataset += x
-	#	ipdb.set_trace()
-	# get the tables out
-	#for page in dataset:
-	#	doc = etree.parse(StringIO(page), parser=etree.HTMLParser())
+		
 
 if __name__ == '__main__':
 	main()
