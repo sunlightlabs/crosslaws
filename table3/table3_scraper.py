@@ -17,7 +17,7 @@ import simplejson
 years = { 1950 }
 
 # for testing purposes, the number of files downloaded can be limited.
-LIMIT_SUBSUBRELEASES = True
+LIMIT_SUBSUBRELEASES = False
 LIMIT = 5
 
 def mainscraper(content): #function to parse Table 3 website
