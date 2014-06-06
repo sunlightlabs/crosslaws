@@ -9,7 +9,6 @@ The output is a list of references, currently printing to standard output.
 
 from __future__ import division
 from bs4 import BeautifulSoup
-import cPickle
 import re
 import sys
 
