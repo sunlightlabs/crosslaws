@@ -3,7 +3,6 @@ import os, sys
 import httplib2
 from lxml import etree
 from StringIO import StringIO
-#import mx.DateTime
 import re
 import simplejson
 
@@ -20,9 +19,7 @@ years = { 1950 }
 
 # for testing purposes, the number of files downloaded can be limited.
 LIMIT_SUBSUBRELEASES = False
-LIMIT = 5000
-
-
+LIMIT = 50
 
 def mainscraper(content): #function to parse Table 3 website
 	doc = etree.parse(StringIO(content), parser=etree.HTMLParser())
@@ -60,14 +57,11 @@ def subscraper(content): #function to parse Table 3 website
 				print addy
 				#print text, url
 				#releases += [(text, url)]
-
-				page_content = add_subsubrelease(url)
-
-				parsed_content = _parse_legislative_changes_page( page_content )
-				parsed_content[ 'URL' ] = url
-				subsubreleases.append( parsed_content )
+				subsubreleases.append( add_subsubrelease(url) )
 				if LIMIT_SUBSUBRELEASES and len( subsubreleases ) == LIMIT:
 					return subsubreleases
+
+
 	return	subsubreleases
 
 def add_release(url): #function grab main page data
@@ -99,7 +93,10 @@ def add_subsubrelease(url): #function to grab sub, sub page data
 	
 
 def _process_caption_span( expected_class, caption_span, caption_dict ):
-    assert caption_span.get('class') == expected_class
+    #print expected_class
+    #print caption_span.get('class')
+    #print type( caption_span )
+    #assert caption_span.get('class') == expected_class
 
     text_val = " ".join ( caption_span.itertext() )
 
